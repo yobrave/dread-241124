@@ -1,34 +1,38 @@
-"""Builds the one-line approving review comment for Two Days of Quiet Dread."""
+"""Quiet-dread review comment, reentry build."""
 import json
-import os
-from pathlib import Path
+import os.path
 
-LIMIT = 140
-NAME = "entry.txt"
-LINE = "LGTM. It works today, which is the only unit of time this repo has ever recognized."
+REMARK = ("Approved. This code will outlive the team, the product, and "
+          "quite possibly the concept of maintenance. Nice work.")
+ROOF = 140
+FLOOR = 1
 
-
-def checks():
-    return [
-        ("not blank", bool(LINE.strip())),
-        ("one line", ("\n" not in LINE) and ("\r" not in LINE)),
-        ("within cap", len(LINE) <= LIMIT),
-    ]
-
-
-def run():
-    repo = Path(__file__).resolve().parent
-    on_disk = (repo / NAME).read_text(encoding="utf-8").strip()
-    if on_disk != LINE:
-        raise SystemExit("entry.txt does not match builder constant")
-    bad = [label for label, ok in checks() if not ok]
-    if bad:
-        raise SystemExit("gate failed: " + ", ".join(bad))
-    out = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
-    out.mkdir(parents=True, exist_ok=True)
-    (out / NAME).write_text(LINE + "\n", encoding="utf-8")
-    wire = len((out / NAME).read_bytes())
-    print(json.dumps({"out": str(out / NAME), "n": len(LINE), "bytes": wire, "cap": LIMIT, "ok": True}))
+RULES = {
+    "single_line": lambda s: "\r" not in s and "\n" not in s,
+    "not_blank": lambda s: s.strip() != "",
+    "fits": lambda s: len(s) <= ROOF,
+    "meets_floor": lambda s: len(s) >= FLOOR,
+}
 
 
-run()
+def audit(text):
+    failed = [name for name, rule in RULES.items() if not rule(text)]
+    if failed:
+        raise SystemExit("rule breach: " + ",".join(failed))
+
+
+def ship(base):
+    if not os.path.isdir(base):
+        os.makedirs(base)
+    leaf = os.path.join(base, "entry.txt")
+    with open(leaf, "w", encoding="utf-8") as pen:
+        pen.write(REMARK)
+    with open(leaf, encoding="utf-8") as eye:
+        assert eye.read() == REMARK, "stored text drifted"
+    return leaf
+
+
+goal = os.environ.get("MAKEFUN_OUTPUT_DIR") or "output"
+audit(REMARK)
+path = ship(goal)
+print(json.dumps({"written": path, "len": len(REMARK), "roof": ROOF}))
