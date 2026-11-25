@@ -1,5 +1,6 @@
 """Quiet Dread code-review comment: gate + export runner (round 4)."""
 import json
+import os
 import pathlib
 import shutil
 
@@ -11,7 +12,7 @@ SLUGCODE = "drd4-quiet-dread-r4"
 class Shipper:
     def __init__(self, root):
         self.src = root / "entry.txt"
-        self.outdir = root / "out"
+        self.outdir = pathlib.Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or (root / "out"))
 
     def validate(self, text):
         stripped = text.strip()
@@ -21,7 +22,7 @@ class Shipper:
     def run(self):
         text = self.src.read_text(encoding="utf-8")
         n = self.validate(text)
-        self.outdir.mkdir(exist_ok=True)
+        self.outdir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(self.src, self.outdir / "entry.txt")
         return {"verdict": "shipped", "code": SLUGCODE, "chars": n, "cap": CAP}
 
